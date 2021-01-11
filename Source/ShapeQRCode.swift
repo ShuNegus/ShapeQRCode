@@ -21,7 +21,8 @@ public struct ShapeQRCode {
     public var moduleSpacingPercent: CGFloat
     public var shape: Shape
     public var color: UIColor
-    
+    public var moduleSize: CGFloat = 0
+
     private var qr: QRCode
     public var errorCorrectionLevel: ErrorCorrectionLevel {
         didSet {
@@ -115,8 +116,8 @@ extension UIGraphicsImageRendererContext.PixelData {
 }
 
 public extension ShapeQRCode {
-    
-    private func image(fromRenderer renderer: UIGraphicsImageRenderer) -> UIImage {
+
+    private mutating func image(fromRenderer renderer: UIGraphicsImageRenderer) -> UIImage {
         ///The bounds of the image where we draw in
         let bounds = renderer.format.bounds
 
@@ -140,16 +141,24 @@ public extension ShapeQRCode {
             
             //The pixel data of the context that we're drawing in (required for efficient computation of where to draw the qr modules)
             let pixelData = ctx.pixelData()
+
+            var isModuleLineEnd = false
             
             //draw modules
             for x in 0..<qr.size {
                 for y in 0..<qr.size {
+                    let isPoint = self.qr.getModuleForPositionX(Int32(x), andY: Int32(y))
                     //only draw if that position should be black
-                    guard self.qr.getModuleForPositionX(Int32(x), andY: Int32(y)) else {
+                    guard isPoint else {
+                        isModuleLineEnd = true
                         continue
                     }
                     
                     let moduleRect = self.moduleRect(atCoordinate: (x,y), inBounds: bounds)
+
+                    if isModuleLineEnd == false {
+                        self.moduleSize = moduleRect.maxY
+                    }
                     
                     ///The number of pixels for one point (it is a scale in the CGContext, because this simplifies drawing)
                     let pixelsPerPoint = ctx.cgContext.userSpaceToDeviceSpaceTransform.a
@@ -180,7 +189,7 @@ public extension ShapeQRCode {
     
     ///Returns an image that has the size in points as specified by the length parameter
     ///The scale factor determines how many pixels per point
-    public func image(withLength length: CGFloat, scale: CGFloat = UIScreen.main.scale) -> UIImage {
+    mutating func image(withLength length: CGFloat, scale: CGFloat = UIScreen.main.scale) -> UIImage {
         
         //define the size of the image (in POINTS)
         let size = CGSize(width: length, height: length)
@@ -202,7 +211,7 @@ public extension ShapeQRCode {
     ///The resulting image may have more pixels than points, because the scale-factor (how many pixels we use for one point) is determined automatically by the device's hardware specifications.
     ///NOTE: it is possible that due to antialiasing, there are grey lines between the different modules of the QR code. to prevent antialiasing, use an appropriate size that remove antialiasing. -> TODO: add a method that automatically adjusts the length in pixels so that antialiasing-effect isn't visible.
     ///NOTE: encoding speed also depends on how much transparent areas the containedImage has (few transparent areas <-> faster ; much transparent areas <-> slower)
-    public func image(withLength length: CGFloat = 1000.0,
+    mutating func image(withLength length: CGFloat = 1000.0,
                       withIntegrityCheck integrityCheck: Bool,
                       errorCorrectionOptimization: Bool = true) throws -> UIImage {
         
@@ -392,7 +401,7 @@ private extension ShapeQRCode {
 
 //MARK: - images in the QR code
 public extension ShapeQRCode {
-    public struct Image {
+    struct Image {
         var sizeInPercent: CGSize
         let rawImage: UIImage
         let isTransparencyDetectionOn: Bool
@@ -416,7 +425,7 @@ public extension ShapeQRCode {
 
 //MARK: - different shapes
 public extension ShapeQRCode {
-    public enum Shape: CaseIterable {
+    enum Shape: CaseIterable {
         case circle
         case square
     }
@@ -425,7 +434,7 @@ public extension ShapeQRCode {
 
 //MARK: - Errors/Problems
 public extension ShapeQRCode {
-    public enum Problem: Error {
+    enum Problem: Error {
         case percentValuesInappropriate
         
         public enum QRContainedImageEncodingProblem: Error {
@@ -446,7 +455,7 @@ public extension ShapeQRCode {
 public extension ShapeQRCode {
 
     //A one-to-one mapping to QRCodeErrorCorrectionLevel
-    public enum ErrorCorrectionLevel: CaseIterable {
+    enum ErrorCorrectionLevel: CaseIterable {
         case low
         case medium
         case quartile
@@ -470,7 +479,7 @@ public extension ShapeQRCode {
 
 //MARK: - maximum module spacing
 public extension ShapeQRCode {
-    public var maximumModuleSpacingInPercent: CGFloat {
+    var maximumModuleSpacingInPercent: CGFloat {
         return 1.0/CGFloat(qr.size)
     }
 }
@@ -480,18 +489,19 @@ public extension ShapeQRCode {
 public extension ShapeQRCode {
     static let renderingQueue = DispatchQueue(label: "com.geroembser.ShapeQRCode.RenderingQueue", qos: .userInitiated, attributes: .concurrent)
     
-    public typealias ShapeQRCodeRenderingCompletionHandler = (UIImage, Error?) -> Void
+    typealias ShapeQRCodeRenderingCompletionHandler = (UIImage, Error?) -> Void
     ///Renders the ShapeQRCode as a UIImage on a background thread and calls the given closure when completed (with an error or the sucessfully rendered image)
-    public func asyncImage(withLength length: CGFloat = 1000.0,
+    func asyncImage(withLength length: CGFloat = 1000.0,
                            withIntegrityCheck integrityCheck: Bool = true,
                            errorCorrectionOptimization: Bool = true,
                            withCompletionHandler completionHandler: @escaping ShapeQRCodeRenderingCompletionHandler) {
         ShapeQRCode.renderingQueue.async {
+            var mutatingSelf = self
             do {
                 //render the image
-                let image = try self.image(withLength: length,
-                                           withIntegrityCheck: integrityCheck,
-                                           errorCorrectionOptimization: errorCorrectionOptimization)
+                let image = try mutatingSelf.image(withLength: length,
+                                                   withIntegrityCheck: integrityCheck,
+                                                   errorCorrectionOptimization: errorCorrectionOptimization)
                 
                 
                 completionHandler(image, nil)
@@ -503,4 +513,42 @@ public extension ShapeQRCode {
             catch { return } //do nothing
         }
     }
+}
+
+// MARK: - Render with custom module
+
+public extension ShapeQRCode {
+
+  mutating func image(
+    withLength length: CGFloat,
+    moduleImage: UIImage,
+    moduleBgColor: UIColor
+  ) -> UIImage {
+    let image = self.image(withLength: length)
+    let bgView = UIImage(color: moduleBgColor) ?? UIImage()
+    let size = image.size
+    UIGraphicsBeginImageContextWithOptions(size, false, 0.0)
+
+    image.draw(in: CGRect(x: 0, y: 0, width: size.width, height: size.height))
+
+    let leftTopModuleRect = CGRect(x: 0, y: 0, width: moduleSize, height: moduleSize)
+
+    bgView.draw(in: leftTopModuleRect)
+    moduleImage.draw(in: leftTopModuleRect)
+
+    let rightTopModuleRect = CGRect(x: size.width - moduleSize, y: 0, width: moduleSize, height: moduleSize)
+
+    bgView.draw(in: rightTopModuleRect)
+    moduleImage.draw(in: rightTopModuleRect)
+
+    let leftBottomModuleRect = CGRect(x: 0, y: size.width - moduleSize, width: moduleSize, height: moduleSize)
+
+    bgView.draw(in: leftBottomModuleRect)
+    moduleImage.draw(in: leftBottomModuleRect)
+
+    let newImage:UIImage = UIGraphicsGetImageFromCurrentImageContext()!
+    UIGraphicsEndImageContext()
+
+    return newImage
+  }
 }
