@@ -1,13 +1,13 @@
 Pod::Spec.new do |s|
 s.name = 'ShapeQRCode'
-s.version = '0.9.2'
-s.author = 'Gero Embser'
-s.homepage = 'https://github.com/geroembser/ShapeQRCode'
+s.version = '0.9.3'
+s.author = 'Gero Embser forked by Shunegus'
+s.homepage = 'https://github.com/ShuNegus/ShapeQRCode'
 s.license = { :type => 'MIT', :file => 'LICENSE' }
 
 s.summary = 'Swift QR code generator where the black squares can be replaced by shapes and images can be included in the QRCode'
 
-s.source = { :git => 'https://github.com/geroembser/ShapeQRCode.git',
+s.source = { :git => 'https://github.com/ShuNegus/ShapeQRCode',
              :tag => s.version,
              :submodules => true
             }
