@@ -1,6 +1,6 @@
 Pod::Spec.new do |s|
 s.name = 'ShapeQRCode'
-s.version = '0.9.3'
+s.version = '0.9.4'
 s.author = 'Gero Embser forked by Shunegus'
 s.homepage = 'https://github.com/ShuNegus/ShapeQRCode'
 s.license = { :type => 'MIT', :file => 'LICENSE' }
@@ -12,8 +12,8 @@ s.source = { :git => 'https://github.com/ShuNegus/ShapeQRCode',
              :submodules => true
             }
 
-s.ios.deployment_target = '12.0'
-s.swift_version = '4.2'
+s.ios.deployment_target = '10.0'
+s.swift_version = '5.1'
 
 #define the source files
 s.source_files = 'Source/*.{swift,h,m}', 'nayuki-QR-Code-Generator/c/qrcodegen.{h,c}'

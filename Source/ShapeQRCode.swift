@@ -6,7 +6,6 @@
 //  Copyright © 2018 Gero Embser. All rights reserved.
 //
 
-import Foundation
 import UIKit
 import NayukiQR
 
@@ -196,11 +195,16 @@ public extension ShapeQRCode {
         
         //create the renderer for the given length and scale
         
-        ///The renderer for the image
-        let rendererFormat = UIGraphicsImageRendererFormat(for: UIScreen.main.traitCollection)
-        rendererFormat.scale = scale
-        
-        let renderer = UIGraphicsImageRenderer(size: size, format: rendererFormat)
+      ///The renderer for the image
+      let rendererFormat: UIGraphicsImageRendererFormat
+      if #available(iOS 11.0, *) {
+        rendererFormat = UIGraphicsImageRendererFormat(for: UIScreen.main.traitCollection)
+      } else {
+        rendererFormat = UIGraphicsImageRendererFormat()
+      }
+      rendererFormat.scale = scale
+
+      let renderer = UIGraphicsImageRenderer(size: size, format: rendererFormat)
         
         
         //return...
